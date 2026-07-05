@@ -184,6 +184,35 @@ export default function App() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  // function to get the saved sessionId from the browser's storage to continue the conversation else create a new one
+  const [threadId] = useState(() => {
+    const saved = localStorage.getItem("aiCodingAgent")
+    if(saved) return saved
+
+    const newId = crypto.randomUUID();
+    localStorage.setItem("aiCodingAgent",newId)
+    return newId
+  })
+
+  // function to retrieve the history for specific session_id from backend
+  useEffect(() => { 
+
+    async function fetchData() {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/get_history`, {
+        method : "POST",
+        headers : {"content-type": "application/json"},
+        body : JSON.stringify({  thread_id: threadId })
+      });
+      const history = await response.json()
+      
+      
+      setMessages(history.messages)
+    }
+    fetchData()
+        
+      
+     },[])
+
   // Main chat logic
   const handleSend = async (e) => {
     e.preventDefault();
@@ -193,6 +222,7 @@ export default function App() {
     
     setMessages((prev) => [...prev, {
       "role": "user",
+      "type": "message",
       "content": userMessage
     }]);
     
@@ -202,7 +232,7 @@ export default function App() {
       const response = await fetch(`${import.meta.env.VITE_API_URL}/api/chat`, {
         method : "POST",
         headers : {"content-type": "application/json"},
-        body : JSON.stringify({ message: userMessage })
+        body : JSON.stringify({ message: userMessage, thread_id: threadId })
       });
       
       const reader = response.body.getReader();
