@@ -50,27 +50,51 @@ const Header = () => (
 // --- 2. Expander (Dropdown) Component ---
 const Expander = ({ title, icon: Icon, children, defaultOpen = false, type = 'default' }) => {
   const [isOpen, setIsOpen] = useState(defaultOpen);
-  const isError = type === 'error';
+
+  // Define color themes for different message types
+  const themes = {
+    error: {
+      container: 'border-red-200',
+      button: 'bg-red-100 text-red-800 hover:bg-red-200',
+      content: 'bg-red-50/50 text-red-800 border-red-200',
+    },
+    success: {
+      container: 'border-green-200',
+      button: 'bg-green-100 text-green-800 hover:bg-green-200',
+      content: 'bg-green-50/50 text-green-800 border-green-200',
+    },
+    tool_call: {
+      container: 'border-blue-200',
+      button: 'bg-blue-100 text-blue-800 hover:bg-blue-200',
+      content: 'bg-blue-50/50 text-blue-800 border-blue-200',
+    },
+    default: {
+      container: 'border-gray-200',
+      button: 'bg-gray-100 text-gray-800 hover:bg-gray-200',
+      content: 'bg-gray-50/50 text-gray-800 border-gray-200',
+    }
+  };
+
+  // Fallback to default if an unknown type is passed
+  const currentTheme = themes[type] || themes.default;
 
   return (
-    <div className={`mt-2 rounded-lg overflow-hidden border shadow-sm ${isError ? 'border-rose-700/50' : 'border-slate-700'}`}>
+    <div className={`rounded-lg overflow-hidden border shadow-sm transition-colors ${currentTheme.container}`}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className={`w-full flex items-center justify-between px-3 py-2.5 text-[11px] font-mono tracking-wide transition-colors focus:outline-none
-          ${isError ? 'bg-rose-950/80 text-rose-300 hover:bg-rose-900' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'}
-        `}
+        className={`w-full flex items-center justify-between px-3 py-2.5 text-[11px] font-mono tracking-wide transition-colors focus:outline-none ${currentTheme.button}`}
       >
         <div className="flex items-center gap-2 truncate pr-4 w-full text-left">
-          {Icon && <Icon />}
+          {Icon && <Icon className="w-3.5 h-3.5 shrink-0" />}
           <span className="truncate">{title}</span>
         </div>
         <div className="shrink-0 opacity-70">
-          {isOpen ? <ChevronDown /> : <ChevronRight />}
+          {isOpen ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
         </div>
       </button>
       
       {isOpen && (
-        <div className={`p-4 text-xs font-mono overflow-x-auto whitespace-pre-wrap border-t ${isError ? 'bg-rose-950 text-rose-200 border-rose-900/50' : 'bg-slate-900 text-slate-300 border-slate-700'}`}>
+        <div className={`p-4 text-xs font-mono overflow-x-auto whitespace-pre-wrap border-t ${currentTheme.content}`}>
           {children}
         </div>
       )}
@@ -84,6 +108,10 @@ const ChatBubble = ({ messages }) => (
     {messages.map((msg, index) => {
       const isUser = msg.role === "user";
       
+      // Determine if this message only contains Expanders (Actions, Results, System Data)
+      const isExpander = msg.type === "action" || msg.type === "tool_result" || typeof msg.content === "object";
+      const showOuterBubble = isUser || !isExpander;
+      
       return (
         <div 
           key={index} 
@@ -91,10 +119,12 @@ const ChatBubble = ({ messages }) => (
         >
           <div 
             className={`
-              flex flex-col max-w-[85%] md:max-w-[75%] 
-              ${isUser 
-                ? 'bg-slate-900 text-white rounded-2xl rounded-tr-sm px-5 py-3.5 shadow-md' 
-                : 'bg-white border border-slate-200 text-slate-800 rounded-2xl rounded-tl-sm px-5 py-4 shadow-sm'
+              flex flex-col gap-2 max-w-[85%] md:max-w-[75%] 
+              ${showOuterBubble 
+                ? (isUser 
+                  ? 'bg-slate-900 text-white rounded-2xl rounded-tr-sm px-5 py-3.5 shadow-md' 
+                  : 'bg-white border border-slate-200 text-slate-800 rounded-2xl rounded-tl-sm px-5 py-4 shadow-sm')
+                : 'w-full' // Stretch expanders to take up maximum available width without bubble padding
               }
             `}
           >
@@ -110,11 +140,16 @@ const ChatBubble = ({ messages }) => (
                 }
 
                 return (
-                  <Expander key={idx} title={title} icon={TerminalIcon}>
+                  <Expander 
+                    key={idx} 
+                    title={title} 
+                    icon={TerminalIcon} 
+                    type="tool_call"
+                  >
                     {tool.name === "write_file" ? (
-                      <div className="text-emerald-400">{tool.args.content}</div>
+                      <div>{tool.args.content}</div>
                     ) : tool.name === "run_terminal" ? (
-                      <div className="text-emerald-400">$ {tool.args.command}</div>
+                      <div>$ {tool.args.command}</div>
                     ) : (
                       <div>{JSON.stringify(tool.args, null, 2)}</div>
                     )}
@@ -127,14 +162,14 @@ const ChatBubble = ({ messages }) => (
               <Expander
                 title={`Result: ${msg.name || 'System'}`}
                 icon={TerminalIcon}
-                type={msg.content?.includes?.('ERROR') || msg.content?.includes?.('FAILED') ? 'error' : 'default'}
+                type={msg.content?.includes?.('ERROR') || msg.content?.includes?.('FAILED') ? 'error' : 'success'}
               >
                 {msg.content}
               </Expander>
               
             /* 3. Fallback for unexpected objects */
             ) : typeof msg.content === "object" ? (
-              <Expander title="System Data" icon={TerminalIcon}>
+              <Expander title="System Data" icon={TerminalIcon} type="default">
                  {JSON.stringify(msg.content, null, 2)}
               </Expander>
               
