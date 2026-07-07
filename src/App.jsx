@@ -159,7 +159,7 @@ const Input = ({ handleSend, inputMessage, setInputMessage }) => (
       <input 
         value={inputMessage}
         onChange={(e) => setInputMessage(e.target.value)} 
-        placeholder="Ask the agent to build something..." 
+        placeholder="Ask the agent to write, test, or debug Python code..." 
         className="flex-1 bg-transparent text-slate-800 px-6 py-4 outline-none placeholder:text-slate-400 text-sm md:text-base rounded-l-2xl" 
       />
       <button 
